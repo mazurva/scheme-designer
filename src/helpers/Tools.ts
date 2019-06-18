@@ -5,18 +5,24 @@ namespace SchemeDesigner {
     export class Tools {
 
         /**
+         * Number for id generator
+         * @type {number}
+         */
+        protected static idNumber: number = 0;
+
+        /**
          * Object configurator
          * @param obj
          * @param params
          */
-        public static configure(obj: any, params: any)
+        public static configure(obj: any, params: any): void
         {
             if (params) {
                 for (let paramName in params) {
                     let value = params[paramName];
                     let setter = 'set' + Tools.capitalizeFirstLetter(paramName);
                     if (typeof obj[setter] === 'function') {
-                        obj[setter].apply(obj, [value]);
+                        obj[setter].call(obj, value);
                     }
                 }
             }
@@ -27,7 +33,7 @@ namespace SchemeDesigner {
          * @param string
          * @returns {string}
          */
-        public static capitalizeFirstLetter(string: string)
+        public static capitalizeFirstLetter(string: string): string
         {
             return string.charAt(0).toUpperCase() + string.slice(1);
         }
@@ -62,9 +68,9 @@ namespace SchemeDesigner {
                 let rectCenterX = (boundingRect.left + boundingRect.right) / 2;
                 let rectCenterY = (boundingRect.top + boundingRect.bottom) / 2;
 
-                let distance = Math.sqrt(Math.pow(x - rectCenterX, 2) + Math.pow(y - rectCenterY, 2));
-                x = x + distance * Math.cos(rotation);
-                y = y - distance * Math.sin(rotation);
+                let rotatedPoint = Tools.rotatePointByAxis(coordinates, {x: rectCenterX, y: rectCenterY}, rotation);
+                x = rotatedPoint.x;
+                y = rotatedPoint.y;
             }
 
 
@@ -74,6 +80,23 @@ namespace SchemeDesigner {
             }
 
             return result;
+        }
+
+        /**
+         * Rotate point by axis
+         * @param point
+         * @param axis
+         * @param rotation
+         * @returns {Coordinates}
+         */
+        public static rotatePointByAxis(point: Coordinates, axis: Coordinates, rotation: number): Coordinates
+        {
+            rotation = rotation * Math.PI / 180;
+
+            let x = axis.x + (point.x - axis.x) * Math.cos(rotation) - (point.y - axis.y) * Math.sin(rotation);
+            let y = axis.y + (point.x - axis.x) * Math.sin(rotation) + (point.y - axis.y) * Math.cos(rotation);
+
+            return {x: x, y: y};
         }
 
         /**
@@ -104,13 +127,30 @@ namespace SchemeDesigner {
 
 
             for (let schemeObject of objects) {
-                let objectBoundingRect = schemeObject.getBoundingRect();
+                let objectBoundingRect = schemeObject.getOuterBoundingRect();
 
                 let isPart = this.rectIntersectRect(objectBoundingRect, boundingRect);
 
                 if (isPart) {
                     result.push(schemeObject);
                 }
+            }
+
+            return result;
+        }
+
+        /**
+         * Filter by bounding rect objects in layers
+         * @param boundingRect
+         * @param objectsByLayers
+         * @returns {SchemeObjectsByLayers}
+         */
+        public static filterLayersObjectsByBoundingRect(boundingRect: BoundingRect, objectsByLayers: SchemeObjectsByLayers): SchemeObjectsByLayers
+        {
+            let result: SchemeObjectsByLayers = {};
+            for (let layerId in objectsByLayers) {
+                let objects = objectsByLayers[layerId];
+                result[layerId] = Tools.filterObjectsByBoundingRect(boundingRect, objects);
             }
 
             return result;
@@ -241,6 +281,17 @@ namespace SchemeDesigner {
                 document.defaultView.getComputedStyle(element, null).getPropertyValue(property);
         };
 
+        /**
+         * Generate unique id
+         * @returns {number}
+         */
+        public static generateUniqueId(): number
+        {
+            this.idNumber++;
+
+            return this.idNumber;
+        }
+
 
         /**
          * Touch supported
@@ -281,6 +332,50 @@ namespace SchemeDesigner {
         public static getRandomString(): string
         {
             return Math.random().toString(36).substr(2, 9);
+        }
+
+        /**
+         * Disable selection on element
+         * @param element
+         */
+        public static disableElementSelection(element: HTMLElement): void
+        {
+            let styles = [
+                '-webkit-touch-callout',
+                '-webkit-user-select',
+                '-khtml-user-select',
+                '-moz-user-select',
+                '-ms-user-select',
+                'user-select',
+                'outline'
+            ];
+            for (let styleName of styles) {
+                (element.style as any)[styleName] = 'none';
+            }
+        }
+
+        /**
+         * Get pointer from event
+         * @param e
+         * @param clientProp
+         * @returns {number}
+         */
+        public static getPointer(e: MouseEvent | TouchEvent, clientProp: string): number
+        {
+            let touchProp = e.type === 'touchend' ? 'changedTouches' : 'touches';
+
+            let event = (e as any);
+
+            // touch event
+            if (event[touchProp] && event[touchProp][0]) {
+                if (event[touchProp].length == 2) {
+                    return (event[touchProp][0][clientProp] + event[touchProp][1][clientProp]) / 2;
+                }
+
+                return event[touchProp][0][clientProp];
+            }
+
+            return event[clientProp];
         }
     }
 }

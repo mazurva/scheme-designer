@@ -41,6 +41,11 @@ namespace SchemeDesigner {
         protected lastTouchEndTime: number = 0;
 
         /**
+         * Delay for prevent double tap
+         */
+        protected doubleTapDelay: number = 300;
+
+        /**
          * Constructor
          * @param {SchemeDesigner.Scheme} scheme
          */
@@ -52,46 +57,48 @@ namespace SchemeDesigner {
                 x: this.scheme.getWidth() / 2,
                 y: this.scheme.getHeight() / 2
             });
+
+            this.bindEvents();
         }
 
         /**
          * Bind events
          */
-        public bindEvents(): void
+        protected bindEvents(): void
         {
             // mouse events
             this.scheme.getCanvas().addEventListener('mousedown', (e: MouseEvent) => {
-                this.onMouseDown(e)
+                this.onMouseDown(e);
             });
             this.scheme.getCanvas().addEventListener('mouseup', (e: MouseEvent) => {
-                this.onMouseUp(e)
+                this.onMouseUp(e);
             });
             this.scheme.getCanvas().addEventListener('click', (e: MouseEvent) => {
-                this.onClick(e)
+                this.onClick(e);
             });
             this.scheme.getCanvas().addEventListener('dblclick', (e: MouseEvent) => {
-                this.onDoubleClick(e)
+                this.onDoubleClick(e);
             });
             this.scheme.getCanvas().addEventListener('mousemove', (e: MouseEvent) => {
-                this.onMouseMove(e)
+                this.onMouseMove(e);
             });
             this.scheme.getCanvas().addEventListener('mouseout', (e: MouseEvent) => {
-                this.onMouseOut(e)
+                this.onMouseOut(e);
             });
             this.scheme.getCanvas().addEventListener('mouseenter', (e: MouseEvent) => {
-                this.onMouseEnter(e)
+                this.onMouseEnter(e);
             });
             this.scheme.getCanvas().addEventListener('contextmenu', (e: MouseEvent) => {
-                this.onContextMenu(e)
+                this.onContextMenu(e);
             });
 
             // wheel
             this.scheme.getCanvas().addEventListener('mousewheel', (e: MouseWheelEvent) => {
-                this.onMouseWheel(e)
+                this.onMouseWheel(e);
             });
             // for FF
             this.scheme.getCanvas().addEventListener('DOMMouseScroll', (e: MouseWheelEvent) => {
-                this.onMouseWheel(e)
+                this.onMouseWheel(e);
             });
 
             // touch events
@@ -101,6 +108,10 @@ namespace SchemeDesigner {
             });
 
             this.scheme.getCanvas().addEventListener('touchmove', (e: TouchEvent) => {
+                if (!e.targetTouches) {
+                    return false;
+                }
+
                 if (e.targetTouches.length == 1) {
                     // one finger - dragging
                     this.onMouseMove(e);
@@ -129,7 +140,7 @@ namespace SchemeDesigner {
             this.scheme.getCanvas().addEventListener('touchend', (e: TouchEvent) => {
                 // prevent double tap zoom
                 let now = (new Date()).getTime();
-                if (this.lastTouchEndTime && now - this.lastTouchEndTime <= 300) {
+                if (this.lastTouchEndTime && now - this.lastTouchEndTime <= this.doubleTapDelay) {
                     e.preventDefault();
                 } else {
                     this.onMouseUp(e);
@@ -138,7 +149,7 @@ namespace SchemeDesigner {
             });
 
             this.scheme.getCanvas().addEventListener('touchcancel', (e: TouchEvent) => {
-                this.onMouseUp(e)
+                this.onMouseUp(e);
             });
 
             // resize
@@ -181,7 +192,7 @@ namespace SchemeDesigner {
             }
 
             // defer for prevent trigger click on mouseUp
-            setTimeout(() => {this.isDragging = false; }, 10);
+            setTimeout(() => {this.isDragging = false; }, 1);
         }
 
         /**
@@ -211,7 +222,8 @@ namespace SchemeDesigner {
          */
         protected onDoubleClick(e: MouseEvent): void
         {
-            this.scheme.getZoomManager().zoomToPointer(e, 14);
+            let zoomManager = this.scheme.getZoomManager();
+            zoomManager.zoomToPointer(e, zoomManager.getClickZoomDelta());
         }
 
         /**
@@ -249,30 +261,6 @@ namespace SchemeDesigner {
         }
 
         /**
-         * Get pointer from event
-         * @param e
-         * @param clientProp
-         * @returns {number}
-         */
-        protected getPointer(e: MouseEvent | TouchEvent, clientProp: string): number
-        {
-            let touchProp = e.type === 'touchend' ? 'changedTouches' : 'touches';
-
-            let event = (e as any);
-
-            // touch event
-            if (event[touchProp] && event[touchProp][0]) {
-                if (event[touchProp].length == 2) {
-                    return (event[touchProp][0][clientProp] + event[touchProp][1][clientProp]) / 2;
-                }
-
-                return event[touchProp][0][clientProp];
-            }
-
-            return event[clientProp];
-        }
-
-        /**
          * Handling hover
          * @param e
          */
@@ -297,12 +285,14 @@ namespace SchemeDesigner {
                     if (!alreadyHovered) {
                         schemeHoveredObject.isHovered = false;
 
-                        schemeHoveredObject.mouseLeave(e, this.scheme, this.scheme.getView());
+                        let result = schemeHoveredObject.mouseLeave(e, this.scheme, this.scheme.getView());
                         this.scheme.addChangedObject(schemeHoveredObject);
 
                         this.sendEvent('mouseLeaveObject', schemeHoveredObject);
 
-                        mustReRender = true;
+                        if (result !== false) {
+                            mustReRender = true;
+                        }
                         hasNewHovers = true;
                     }
                 }
@@ -311,13 +301,17 @@ namespace SchemeDesigner {
             if (!this.hoveredObjects.length || hasNewHovers) {
                 for (let schemeObject of objects) {
                     schemeObject.isHovered = true;
-                    mustReRender = true;
                     this.scheme.setCursorStyle(schemeObject.cursorStyle);
 
-                    schemeObject.mouseOver(e, this.scheme, this.scheme.getView());
+                    let result = schemeObject.mouseOver(e, this.scheme, this.scheme.getView());
+
+                    if (result !== false) {
+                        mustReRender = true;
+                    }
+
                     this.scheme.addChangedObject(schemeObject);
 
-                    this.sendEvent('mouseOverObject', schemeObject);
+                    this.sendEvent('mouseOverObject', schemeObject, e);
                 }
             }
 
@@ -392,8 +386,8 @@ namespace SchemeDesigner {
         protected getCoordinatesFromEvent(e: MouseEvent | TouchEvent): Coordinates
         {
             let clientRect = this.scheme.getCanvas().getBoundingClientRect();
-            let x = this.getPointer(e, 'clientX') - clientRect.left;
-            let y = this.getPointer(e, 'clientY') - clientRect.top;
+            let x = Tools.getPointer(e, 'clientX') - clientRect.left;
+            let y = Tools.getPointer(e, 'clientY') - clientRect.top;
 
             return {x, y};
         }
@@ -402,7 +396,7 @@ namespace SchemeDesigner {
          * Set last client position
          * @param coordinates
          */
-        public setLastClientPosition(coordinates: Coordinates): void
+        protected setLastClientPosition(coordinates: Coordinates): void
         {
             this.lastClientPosition = coordinates;
         }
@@ -429,14 +423,22 @@ namespace SchemeDesigner {
          * Send event
          * @param {string} eventName
          * @param data
+         * @param {UIEvent} originalEvent
          */
-        public sendEvent(eventName: string, data?: any): void
+        public sendEvent(eventName: string, data?: any, originalEvent?: UIEvent): void
         {
             let fullEventName = `schemeDesigner.${eventName}`;
 
             if (typeof CustomEvent === 'function') {
+                let dataForSend = data;
+                if (typeof originalEvent !== 'undefined') {
+                    dataForSend = {
+                        data: data,
+                        originalEvent: originalEvent,
+                    };
+                }
                 let event = new CustomEvent(fullEventName, {
-                    detail: data
+                    detail: dataForSend
                 });
                 this.scheme.getCanvas().dispatchEvent(event);
             } else {
@@ -444,6 +446,15 @@ namespace SchemeDesigner {
                 event.initCustomEvent(fullEventName, false, false, data);
                 this.scheme.getCanvas().dispatchEvent(event);
             }
+        }
+
+        /**
+         * Set doubleTapDelay
+         * @param value
+         */
+        public setDoubleTapDelay(value: number): void
+        {
+            this.doubleTapDelay = value;
         }
     }
 }

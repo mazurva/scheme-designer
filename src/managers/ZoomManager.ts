@@ -17,7 +17,12 @@ namespace SchemeDesigner {
         /**
          * Zoom coefficient
          */
-        protected zoomCoefficient = 1.04;
+        protected zoomCoefficient: number = 1.04;
+
+        /**
+         * Click zoom delta
+         */
+        protected clickZoomDelta: number = 14;
 
         /**
          * Padding for max zoom
@@ -50,9 +55,18 @@ namespace SchemeDesigner {
          */
         public zoom(delta: number): boolean
         {
-            let factor = Math.pow(this.zoomCoefficient, delta);
+            let factor = this.getFactorByDelta(delta);
 
             return this.zoomByFactor(factor);
+        }
+
+        /**
+         * Get factor by delta
+         * @param {number} delta
+         */
+        public getFactorByDelta(delta: number): number
+        {
+            return Math.pow(this.zoomCoefficient, delta);
         }
 
         /**
@@ -82,6 +96,51 @@ namespace SchemeDesigner {
         }
 
         /**
+         * Max zoom scale
+         */
+        public getMaxZoomScale(): number
+        {
+            const boundingRectDimensions = this.scheme.getStorageManager().getObjectsDimensions();
+
+            const maxX = this.scheme.getWidth() * this.maxScale / boundingRectDimensions.width;
+            const maxY = this.scheme.getHeight() * this.maxScale / boundingRectDimensions.height;
+
+            return maxX > maxY ? maxX : maxY;
+        }
+
+        /**
+         * Min zoom scale
+         */
+        public getMinZoomScale(): number
+        {
+            const boundingRectDimensions = this.scheme.getStorageManager().getObjectsDimensions();
+
+            const minX = this.scheme.getWidth() * (1 - this.padding) / boundingRectDimensions.width;
+            const minY = this.scheme.getHeight() * (1 - this.padding) / boundingRectDimensions.height;
+
+            return minX < minY ? minX : minY;
+        }
+
+        /**
+         * Can zoom by factor
+         * @param factor
+         */
+        public canZoomByFactor(factor: number): boolean
+        {
+            let oldScale = this.scale;
+            let newScale = oldScale * factor;
+
+            let result = false;
+            if (factor < 1) {
+                result = this.getMinZoomScale() < newScale;
+            } else {
+                result = this.getMaxZoomScale() > newScale;
+            }
+
+            return result;
+        }
+
+        /**
          * Zoom by factor
          * @param factor
          * @returns {boolean}
@@ -92,31 +151,33 @@ namespace SchemeDesigner {
                 clearTimeout(this.renderAllTimer);
             }
 
-            let boundingRect = this.scheme.getStorageManager().getObjectsBoundingRect();
-
-            let canScaleX = true;
-            let canScaleY = true;
-
             let oldScale = this.scale;
-            let newScale = oldScale * factor;
+            let requestedScale = oldScale * factor;
 
-            if (factor < 1) {
-                /**
-                 * Cant zoom less that 100% + padding
-                 */
-                canScaleX = this.scheme.getWidth() * (1 - this.padding) < boundingRect.right * newScale;
-                canScaleY = this.scheme.getHeight() * (1 - this.padding) < boundingRect.bottom * newScale;
-            } else {
-                /**
-                 * Cant zoom more that maxScale
-                 */
-                canScaleX = this.scheme.getWidth() * this.maxScale > boundingRect.right * newScale;
-                canScaleY = this.scheme.getHeight() * this.maxScale > boundingRect.bottom * newScale;
+            const maxScale = this.getMaxZoomScale();
+            const minScale = this.getMinZoomScale();
+
+            let newScale = requestedScale;
+            if (newScale > maxScale) {
+                newScale = maxScale;
+            }
+            if (newScale < minScale) {
+                newScale = minScale;
             }
 
-            if (canScaleX || canScaleY) {
-                this.scheme.getView().getContext().scale(factor, factor);
+            const canZoom = newScale != oldScale;
+
+            this.scheme.getEventManager().sendEvent('zoom', {
+                oldScale: oldScale,
+                newScale: newScale,
+                factor: factor,
+                success: canZoom
+            });
+
+            if (canZoom) {
                 this.scale = newScale;
+                this.scheme.getView().setScale(newScale);
+                this.scheme.getView().applyTransformation();
 
                 if (this.scheme.useSchemeCache()) {
                     this.scheme.requestDrawFromCache();
@@ -124,11 +185,6 @@ namespace SchemeDesigner {
                 } else {
                     this.scheme.requestRenderAll();
                 }
-
-                this.scheme.getEventManager().sendEvent('zoom', {
-                    oldScale: oldScale,
-                    newScale: newScale
-                });
 
                 return true;
             }
@@ -190,7 +246,7 @@ namespace SchemeDesigner {
          * Zoom to center
          * @param delta
          */
-        public zoomToCenter(delta: number)
+        public zoomToCenter(delta: number): void
         {
             this.zoomToPoint({
                 x: this.scheme.getWidth() / 2,
@@ -222,13 +278,19 @@ namespace SchemeDesigner {
                     y: point.y / newScale,
                 };
 
-                let leftOffsetDelta = newCenter.x - prevCenter.x;
-                let topOffsetDelta = newCenter.y - prevCenter.y;
+                let scaleFactor = prevScale / newScale;
+
+                let leftOffsetDelta = (newCenter.x - prevCenter.x) * newScale;
+                let topOffsetDelta = (newCenter.y - prevCenter.y) * newScale;
+
+                let scrollLeft = this.scheme.getScrollManager().getScrollLeft() / scaleFactor;
+                let scrollTop = this.scheme.getScrollManager().getScrollTop() / scaleFactor;
 
                 this.scheme.getScrollManager().scroll(
-                    this.scheme.getScrollManager().getScrollLeft() + leftOffsetDelta,
-                    this.scheme.getScrollManager().getScrollTop() + topOffsetDelta
+                    scrollLeft + leftOffsetDelta,
+                    scrollTop + topOffsetDelta
                 );
+
             }
         }
 
@@ -236,7 +298,7 @@ namespace SchemeDesigner {
          * Set padding
          * @param value
          */
-        public setPadding(value: number)
+        public setPadding(value: number): void
         {
             this.padding = value;
         }
@@ -245,7 +307,7 @@ namespace SchemeDesigner {
          * Set max scale
          * @param value
          */
-        public setMaxScale(value: number)
+        public setMaxScale(value: number): void
         {
             this.maxScale = value;
         }
@@ -254,9 +316,27 @@ namespace SchemeDesigner {
          * Set zoomCoefficient
          * @param value
          */
-        public setZoomCoefficient(value: number)
+        public setZoomCoefficient(value: number): void
         {
             this.zoomCoefficient = value;
+        }
+
+        /**
+         * Set clickZoomDelta
+         * @param value
+         */
+        public setClickZoomDelta(value: number): void
+        {
+            this.clickZoomDelta = value;
+        }
+
+        /**
+         * Get clickZoomDelta
+         * @return {number}
+         */
+        public getClickZoomDelta(): number
+        {
+            return this.clickZoomDelta;
         }
     }
 }

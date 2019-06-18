@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Example</title>
-    <script src="../dist/scheme-designer.min.js?5"></script>
+    <script src="../dist/scheme-designer.min.js?23"></script>
 </head>
 <body>
 <div style="margin: 20px auto; max-width: 1000px;">
@@ -16,24 +16,11 @@
     </div>
 </div>
 <script>
-    var canvas = document.getElementById('canvas1');
-    var schemeDesigner = new SchemeDesigner.Scheme(canvas, {
-        scroll: {
-            maxHiddenPart: 0.85
-        },
-        zoom: {
-            padding: 0.1,
-            maxScale: 8,
-            zoomCoefficient: 1.04
-        },
-        storage: {
-            treeDepth: 6
-        }
-    });
+    var defaultLayer = new SchemeDesigner.Layer('default', {zIndex: 10});
 
-    var placesCount = 20000;
-    var placesInRow = 100;
-    var placeMargin = 5;
+    var placesCount = 40000;
+    var placesInRow = 500;
+    var placeMargin = 15;
 
     var placeWidth = 13;
     var placeHeight = 13;
@@ -46,26 +33,27 @@
      */
     var renderPlace = function (schemeObject, schemeDesigner, view) {
         var context = view.getContext();
+        var objectParams = schemeObject.getParams();
 
         context.beginPath();
         context.lineWidth = 1;
         context.strokeStyle = '#B143B0';
 
         context.fillStyle = '#B143B0';
-        if (schemeObject.params.isSelected && schemeObject.isHovered) {
+        if (objectParams.isSelected && schemeObject.isHovered) {
             context.fillStyle = '#B143B0';
         } else if (schemeObject.isHovered) {
             context.fillStyle = 'white';
-        } else if (schemeObject.params.isSelected) {
+        } else if (objectParams.isSelected) {
             context.fillStyle = '#B143B0';
         }
 
-        var relativeX = schemeObject.getRelativeX(view);
-        var relativeY = schemeObject.getRelativeY(view);
+        var relativeX = schemeObject.getX();
+        var relativeY = schemeObject.getY();
 
-        var width = schemeObject.width;
-        var height = schemeObject.height;
-        if (!schemeObject.isHovered && !schemeObject.params.isSelected) {
+        var width = schemeObject.getWidth();
+        var height = schemeObject.getHeight();
+        if (!schemeObject.isHovered && !objectParams.isSelected) {
             relativeX = relativeX + 2;
             relativeY = relativeY + 2;
             width = width - 4;
@@ -79,25 +67,26 @@
 
         context.font = '6px Arial';
 
-        if (schemeObject.params.isSelected && schemeObject.isHovered) {
+        if (objectParams.isSelected && schemeObject.isHovered) {
             context.fillStyle = 'white';
         } else if (schemeObject.isHovered) {
             context.fillStyle = '#B143B0';
-        } else if (schemeObject.params.isSelected) {
+        } else if (objectParams.isSelected) {
             context.fillStyle = 'white';
         }
 
-        if (schemeObject.params.isSelected || schemeObject.isHovered) {
+        if (objectParams.isSelected || schemeObject.isHovered) {
             context.textAlign = 'center';
             context.textBaseline = 'middle';
-            context.fillText(schemeObject.params.placeNumber, relativeX + (schemeObject.width / 2), relativeY + (schemeObject.height / 2));
+            context.fillText(objectParams.placeNumber, relativeX + (schemeObject.getWidth() / 2), relativeY + (schemeObject.getHeight() / 2));
         }
 
     };
 
     var clickOnPlace = function (schemeObject, schemeDesigner, e)
     {
-        schemeObject.params.isSelected = !schemeObject.params.isSelected;
+        var objectParams = schemeObject.getParams();
+        objectParams.isSelected = !objectParams.isSelected;
     };
 
     /**
@@ -130,8 +119,8 @@
             clickFunction: clickOnPlace,
             clearFunction: function (schemeObject, schemeDesigner, view) {
                 var context = view.getContext();
-                var x = schemeObject.getRelativeX(view);
-                var y = schemeObject.getRelativeY(view);
+                var x = schemeObject.x;
+                var y = schemeObject.y;
                 var borderWidth = 5;
                 context.clearRect(x - borderWidth,
                         y - borderWidth,
@@ -141,8 +130,29 @@
             }
         });
 
-        schemeDesigner.addObject(place);
+        defaultLayer.addObject(place);
     }
+
+
+    var canvas = document.getElementById('canvas1');
+    var schemeDesigner = new SchemeDesigner.Scheme(canvas, {
+        options: {
+            background: '#ffffff'
+        },
+        scroll: {
+            maxHiddenPart: 0.85
+        },
+        zoom: {
+            padding: 0.1,
+            maxScale: 8,
+            zoomCoefficient: 1.04
+        },
+        storage: {
+            treeDepth: 6
+        }
+    });
+
+    schemeDesigner.addLayer(defaultLayer);
 
 
     /**

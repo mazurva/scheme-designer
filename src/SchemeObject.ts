@@ -6,6 +6,11 @@ namespace SchemeDesigner {
     export class SchemeObject
     {
         /**
+         * Object unique id
+         */
+        protected id: number;
+
+        /**
          * X position
          */
         protected x: number;
@@ -26,6 +31,11 @@ namespace SchemeDesigner {
         protected height: number;
 
         /**
+         * Is active
+         */
+        protected active: boolean = true;
+
+        /**
          * Rotation
          */
         protected rotation: number = 0;
@@ -43,7 +53,7 @@ namespace SchemeDesigner {
         /**
          * Render function
          */
-        protected renderFunction: Function;
+        protected renderFunction: Function = function() {};
 
         /**
          * Click function
@@ -63,7 +73,7 @@ namespace SchemeDesigner {
         /**
          * Clear function
          */
-        protected clearFunction: Function;
+        protected clearFunction: Function = function() {};
 
         /**
          * All params of object
@@ -71,14 +81,93 @@ namespace SchemeDesigner {
         protected params: any;
 
         /**
+         * Layer id
+         */
+        protected layerId: string;
+
+        /**
          * Constructor
          * @param {Object} params
          */
         constructor(params: any)
         {
+            this.id = Tools.generateUniqueId();
+
             Tools.configure(this, params);
 
             this.params = params;
+        }
+
+        /**
+         * Set layer id
+         * @param {string} layerId
+         */
+        public setLayerId(layerId: string)
+        {
+            this.layerId = layerId;
+        }
+
+        /**
+         * Get layer id
+         * @return {string}
+         */
+        public getLayerId(): string
+        {
+            return this.layerId;
+        }
+
+        /**
+         * Get id
+         * @returns {number}
+         */
+        public getId(): number
+        {
+            return this.id;
+        }
+
+        /**
+         * Get x
+         * @returns {number}
+         */
+        public getX(): number
+        {
+            return this.x;
+        }
+
+        /**
+         * Get y
+         * @returns {number}
+         */
+        public getY(): number
+        {
+            return this.y;
+        }
+
+        /**
+         * Get width
+         * @returns {number}
+         */
+        public getWidth(): number
+        {
+            return this.width;
+        }
+
+        /**
+         * Get height
+         * @returns {number}
+         */
+        public getHeight(): number
+        {
+            return this.height;
+        }
+
+        /**
+         * Get params
+         * @return {any}
+         */
+        public getParams(): any
+        {
+            return this.params;
         }
 
         /**
@@ -88,9 +177,7 @@ namespace SchemeDesigner {
          */
         public render(scheme: Scheme, view: View): void
         {
-            if (typeof this.renderFunction === 'function') {
-                this.renderFunction(this, scheme, view);
-            }
+            this.renderFunction(this, scheme, view);
         }
 
         /**
@@ -100,9 +187,7 @@ namespace SchemeDesigner {
          */
         public clear(scheme: Scheme, view: View): void
         {
-            if (typeof this.clearFunction === 'function') {
-                this.clearFunction(this, scheme, view);
-            }
+            this.clearFunction(this, scheme, view);
         }
 
         /**
@@ -110,12 +195,14 @@ namespace SchemeDesigner {
          * @param {MouseEvent} e
          * @param {Scheme} schemeDesigner
          * @param view
+         * @return null|boolean
          */
-        public click(e: MouseEvent, schemeDesigner: Scheme, view: View): void
+        public click(e: MouseEvent, schemeDesigner: Scheme, view: View): null|boolean
         {
             if (typeof this.clickFunction === 'function') {
-                this.clickFunction(this, Scheme, view, e);
+                return this.clickFunction(this, schemeDesigner, view, e);
             }
+            return null;
         }
 
         /**
@@ -123,12 +210,14 @@ namespace SchemeDesigner {
          * @param {MouseEvent} e
          * @param {Scheme} schemeDesigner
          * @param view
+         * @return null|boolean
          */
-        public mouseOver(e: MouseEvent | TouchEvent, schemeDesigner: Scheme, view: View): void
+        public mouseOver(e: MouseEvent | TouchEvent, schemeDesigner: Scheme, view: View): null|boolean
         {
             if (typeof this.mouseOverFunction === 'function') {
-                this.mouseOverFunction(this, Scheme, view, e);
+                return this.mouseOverFunction(this, schemeDesigner, view, e);
             }
+            return null;
         }
 
         /**
@@ -136,12 +225,14 @@ namespace SchemeDesigner {
          * @param {MouseEvent} e
          * @param {Scheme} schemeDesigner
          * @param view
+         * @return null|boolean
          */
-        public mouseLeave(e: MouseEvent | TouchEvent, schemeDesigner: Scheme, view: View): void
+        public mouseLeave(e: MouseEvent | TouchEvent, schemeDesigner: Scheme, view: View): null|boolean
         {
             if (typeof this.mouseLeaveFunction === 'function') {
-                this.mouseLeaveFunction(this, Scheme, view, e);
+                return this.mouseLeaveFunction(this, schemeDesigner, view, e);
             }
+            return null;
         }
 
         /**
@@ -244,26 +335,6 @@ namespace SchemeDesigner {
         }
 
         /**
-         * Relative x
-         * @param {SchemeDesigner.View} view
-         * @returns {number}
-         */
-        public getRelativeX(view: View): number
-        {
-            return this.x + view.getScrollLeft();
-        }
-
-        /**
-         * Relative y
-         * @param {SchemeDesigner.View} view
-         * @returns {number}
-         */
-        public getRelativeY(view: View): number
-        {
-            return this.y + view.getScrollTop();
-        }
-
-        /**
          * Bounding rect
          * @returns BoundingRect
          */
@@ -277,6 +348,38 @@ namespace SchemeDesigner {
             };
         }
 
+
+        /**
+         * Outer bound rect
+         * @returns {BoundingRect}
+         */
+        public getOuterBoundingRect(): BoundingRect
+        {
+            let boundingRect = this.getBoundingRect();
+
+            if (!this.rotation) {
+                return boundingRect;
+            }
+
+            // rotate from center
+            let rectCenterX = (boundingRect.left + boundingRect.right) / 2;
+            let rectCenterY = (boundingRect.top + boundingRect.bottom) / 2;
+
+            let axis: Coordinates = {x: rectCenterX, y: rectCenterY};
+
+            let leftTop = Tools.rotatePointByAxis({x: this.x, y: this.y}, axis, this.rotation);
+            let leftBottom = Tools.rotatePointByAxis({x: this.x, y: this.y + this.height}, axis, this.rotation);
+            let rightTop = Tools.rotatePointByAxis({x: this.x + this.width, y: this.y}, axis, this.rotation);
+            let rightBottom = Tools.rotatePointByAxis({x: this.x + this.width, y: this.y + this.height}, axis, this.rotation);
+
+            return {
+                left: Math.min(leftTop.x, leftBottom.x, rightTop.x, rightBottom.x),
+                top: Math.min(leftTop.y, leftBottom.y, rightTop.y, rightBottom.y),
+                right: Math.max(leftTop.x, leftBottom.x, rightTop.x, rightBottom.x),
+                bottom: Math.max(leftTop.y, leftBottom.y, rightTop.y, rightBottom.y),
+            };
+        }
+
         /**
          * Get rotation
          * @returns {number}
@@ -284,6 +387,24 @@ namespace SchemeDesigner {
         public getRotation(): number
         {
             return this.rotation;
+        }
+
+        /**
+         * Get is active
+         * @return {boolean}
+         */
+        public isActive(): boolean
+        {
+            return this.active;
+        }
+
+        /**
+         * Set active
+         * @param {boolean} value
+         */
+        public setActive(value: boolean): void
+        {
+            this.active = value;
         }
     }
 }

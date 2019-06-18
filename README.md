@@ -9,6 +9,7 @@ Demo: <a href="http://nikitchenko.ru/scheme-designer/examples/">http://nikitchen
 <ul>
     <li>No dependencies</li>
     <li>Render only visible objects</li>
+    <li>Layers support</li>
     <li>Responsible</li>
     <li>Objects stored in search tree</li>
     <li>Touch support</li>
@@ -33,10 +34,26 @@ for adaptive add wrapper (relative):
  </div>
 ```
 
-3. Init, add objects and render (see examples)
+3. Init, create layers, add objects to layers and render (see examples)
 ```
+var defaultLayer = new SchemeDesigner.Layer('default', {zIndex: 1});
+
+var schemeObject = new SchemeDesigner.SchemeObject({
+            x: 0.5 + leftOffset,
+            y: 0.5 + topOffset,
+            width: width,
+            height: height,
+            renderFunction: renderPlace
+});
+
+defaultLayer.addObject(schemeObject);
+
 var canvas = document.getElementById('canvas');
+var mapCanvas = document.getElementById('canvas_map');
 var schemeDesigner = new SchemeDesigner.Scheme(canvas, {
+    options: {
+        cacheSchemeRatio: 2
+    },
     scroll: {
         maxHiddenPart: 0.85
     },
@@ -47,18 +64,13 @@ var schemeDesigner = new SchemeDesigner.Scheme(canvas, {
     },
     storage: {
         treeDepth: 6
+    },
+    map: {
+        mapCanvas: mapCanvas
     }
 });
 
-var schemeObject = new SchemeDesigner.SchemeObject({
-            x: 0.5 + leftOffset,
-            y: 0.5 + topOffset,
-            width: width,
-            height: height,
-            renderFunction: renderPlace
-});
-
-schemeDesigner.addObject(schemeObject);
+schemeDesigner.addLayer(defaultLayer);
 
 schemeDesigner.render();
 ```
@@ -71,6 +83,21 @@ schemeDesigner.render();
         <th>Default</th>
         <th>Description</th>
     </tr>
+     <tr>
+        <td colspan=3 align=center><strong>Options</strong></td>
+    </tr>
+     <tr>
+        <td>cacheSchemeRatio</td>
+        <td>2</td>
+        <td>Ratio for scheme cache. Set false to disable cache.</td>
+    </tr>
+     <tr>
+            <td>background</td>
+            <td>null</td>
+            <td>Background of scheme. If define - disable alpha of context (increases performance and turn on subpixel text render).
+            Else - transparent.
+            </td>
+        </tr>
     <tr>
         <td colspan=3 align=center><strong>Scroll</strong></td>
     </tr>
@@ -98,6 +125,11 @@ schemeDesigner.render();
         <td>Zoom coefficient (Math.pow(zoomCoefficient, delta))</td>
     </tr>
     <tr>
+            <td>clickZoomDelta</td>
+            <td>14</td>
+            <td>Zoom delta on double click</td>
+        </tr>
+    <tr>
         <td colspan=3 align=center><strong>Storage</strong></td>
     </tr>
      <tr>
@@ -106,6 +138,31 @@ schemeDesigner.render();
         <td>Depth of search tree</td>
     </tr>
 </table>
+
+<h3>Layer</h3>
+<table>
+    <tr>
+        <th>Option</th>
+        <th>Default</th>
+        <th>Description</th>
+    </tr>
+     <tr>
+        <td>zIndex: number</td>
+        <td>0</td>
+        <td>Z index</td>
+    </tr>
+    <tr>
+        <td>visible: boolean</td>
+        <td>true</td>
+        <td>Layer is visible</td>
+    </tr>
+    <tr>
+        <td>active: boolean</td>
+        <td>true</td>
+        <td>Layer is active: objects can process events</td>
+    </tr>
+</table>
+
 <h3>SchemeObject</h3>
 <table>
     <tr>
@@ -127,6 +184,16 @@ schemeDesigner.render();
         <td>height: number</td>
         <td></td>
         <td>Height</td>
+    </tr>
+     <tr>
+        <td>rotation: number</td>
+        <td>0</td>
+        <td>Rotation</td>
+    </tr>
+     <tr>
+        <td>active: boolean</td>
+        <td>true</td>
+        <td>Active object can hanlde events.</td>
     </tr>
      <tr>
         <td>cursorStyle: string</td>
@@ -153,6 +220,11 @@ schemeDesigner.render();
        <td></td>
        <td>Function for handle mouseleave on object</td>
    </tr>
+     <tr>
+       <td>clearFunction: Function(schemeObject: SchemeObject, scheme: Scheme, view: View)</td>
+       <td></td>
+       <td>Function for clear object on scheme cache</td>
+   </tr>
 </table>
 
 <h2>Api</h2>
@@ -165,8 +237,9 @@ SchemeDesigner.setCursorStyle('move');
 schemeDesigner.getZoomManager().zoomToCenter(10);
 schemeDesigner.getScrollManager().scroll(100, 200);
 schemeDesigner.getStorageManager().showNodesParts();
-
+schemeDesigner.getStorageManager().setLayerVisibility('background', true);
 ```
+
 
 <table>
     <tr>
@@ -197,6 +270,11 @@ schemeDesigner.getStorageManager().showNodesParts();
         <td>StorageManager</td>
         <td></td>
     </tr>
+    <tr>
+        <td>getMapManager()</td>
+        <td>MapManager</td>
+        <td></td>
+    </tr>
      <tr>
         <td>getWidth()</td>
         <td>number</td>
@@ -218,29 +296,14 @@ schemeDesigner.getStorageManager().showNodesParts();
         <td>Request redraw canvas</td>
     </tr>
     <tr>
+        <td>requestDrawFromCache()</td>
+        <td>SchemeDesigner</td>
+        <td>Request draw scheme from cache</td>
+    </tr>
+    <tr>
         <td>render()</td>
         <td></td>
         <td>Request redraw canvas, create search tree and scroll with zoom to center</td>
-    </tr>
-    <tr>
-        <td>addObject(object: SchemeObject)</td>
-        <td></td>
-        <td>Wrapper for storageManager.addObject</td>
-    </tr>
-    <tr>
-        <td>removeObject(object: SchemeObject)</td>
-        <td></td>
-        <td>Wrapper for storageManager.removeObject</td>
-    </tr>
-     <tr>
-        <td>getObjects()</td>
-        <td>SchemeObject[]</td>
-        <td>Wrapper for storageManager.getObjects</td>
-    </tr>
-     <tr>
-        <td>removeObjects(object: SchemeObject)</td>
-        <td></td>
-        <td>Wrapper for storageManager.removeObjects</td>
     </tr>
         <tr>
         <td>getCanvas()</td>
@@ -256,6 +319,59 @@ schemeDesigner.getStorageManager().showNodesParts();
         <td>setCursorStyle(cursor: string)</td>
         <td>SchemeDesigner</td>
         <td>Set cursor style</td>
+    </tr>
+     <tr>
+        <td>updateCache(onlyChanged: boolean)</td>
+        <td></td>
+        <td>Redraw scheme cache</td>
+    </tr>
+    <tr>
+        <td>getView()</td>
+        <td>View</td>
+        <td>Main view</td>
+    </tr>
+    <tr>
+        <td>addChangedObject(schemeObject: SchemeObject)</td>
+        <td></td>
+        <td>Add object to changed list for redraw cache</td>
+    </tr>
+     <tr>
+        <td colspan=3 align=center><strong>Layer</strong></td>
+    </tr>
+    <tr>
+        <td>getObjects()</td>
+        <td>SchemeObject[]</td>
+        <td>Get all objects</td>
+    </tr>
+    <tr>
+        <td>addObject(object: SchemeObject)</td>
+        <td></td>
+        <td>Add object</td>
+    </tr>
+    <tr>
+        <td>removeObject(object: SchemeObject)</td>
+        <td></td>
+        <td>Remove object</td>
+    </tr>
+    <tr>
+        <td>removeObjects()</td>
+        <td></td>
+        <td>Remove all objects</td>
+    </tr>
+    <tr>
+        <td>setZIndex(value: number)</td>
+        <td></td>
+        <td>Set z-index</td>
+    </tr>
+    <tr>
+        <td>setActive(value: boolean)</td>
+        <td></td>
+        <td>Set active flag</td>
+    </tr>
+    <tr>
+        <td>setVisible(value: boolean)</td>
+        <td></td>
+        <td>Set visible flag</td>
     </tr>
     <tr>
         <td colspan=3 align=center><strong>Scroll manager</strong></td>
@@ -304,6 +420,11 @@ schemeDesigner.getStorageManager().showNodesParts();
         <td>Get scale when all objects are visible</td>
     </tr>
     <tr>
+        <td>canZoomByFactor(factor: number)</td>
+        <td>boolean</td>
+        <td>Can by factor</td>
+    </tr>
+    <tr>
         <td>zoomByFactor(factor: number)</td>
         <td>boolean</td>
         <td>Zoom by factor if posible</td>
@@ -342,24 +463,29 @@ schemeDesigner.getStorageManager().showNodesParts();
         <td colspan=3 align=center><strong>Storage manager</strong></td>
     </tr>
      <tr>
-        <td>getObjects()</td>
-        <td>SchemeObject[]</td>
-        <td>Get all objects</td>
+        <td>addLayer(layer: Layer)</td>
+        <td></td>
+        <td>Add layer</td>
     </tr>
     <tr>
-        <td>addObject(object: SchemeObject)</td>
+        <td>removeLayers()</td>
         <td></td>
-        <td>Add object</td>
+        <td>Remove all layers</td>
     </tr>
     <tr>
-        <td>removeObject(object: SchemeObject)</td>
+        <td>removeLayer(layerId: string)</td>
         <td></td>
-        <td>Remove object</td>
+        <td>Remove layer by id</td>
     </tr>
-    <tr>
-        <td>removeObjects()</td>
+     <tr>
+        <td>setLayerVisibility(layerId: string, visible: boolean)</td>
         <td></td>
-        <td>Remove all objects</td>
+        <td>Set layer visibility and rerender scheme</td>
+    </tr>
+     <tr>
+        <td>setLayerActivity(layerId: string, activity: boolean)</td>
+        <td></td>
+        <td>Set layer activity</td>
     </tr>
     <tr>
         <td>findObjectsByCoordinates(coordinates: Coordinates)</td>
@@ -392,9 +518,32 @@ schemeDesigner.getStorageManager().showNodesParts();
         <td>Get root tree node</td>
     </tr>
     <tr>
+        <td>applyStructureChange()</td>
+        <td></td>
+        <td>Recalculate all cructure dependencies</td>
+    </tr>
+    <tr>
         <td>showNodesParts()</td>
         <td></td>
         <td>Draw rect of nodes for testing</td>
+    </tr>
+     <tr>
+        <td colspan=3 align=center><strong>Map manager</strong></td>
+    </tr>
+     <tr>
+        <td>drawMap()</td>
+        <td></td>
+        <td>Draw map</td>
+    </tr>
+    <tr>
+        <td>setMapCanvas(value: HTMLCanvasElement)</td>
+        <td></td>
+        <td>Set canvas for drawing map</td>
+    </tr>
+     <tr>
+        <td>resize()</td>
+        <td></td>
+        <td>Recalculate canvas dimensions</td>
     </tr>
 </table>
 
@@ -435,3 +584,8 @@ schemeDesigner.getStorageManager().showNodesParts();
         <td>On zoom</td>
     </tr>
 </table>
+
+<h2>Donation</h2>
+
+<p>PayPal: <a href="https://www.paypal.me/NikitchenkoSergey/25">nikitchenko.sergey@yandex.ru</a></p>
+<p>Yandex.Money: <a href="https://money.yandex.ru/to/410011704835851/200">410011704835851</a></p>

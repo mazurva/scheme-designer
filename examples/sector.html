@@ -8,21 +8,16 @@
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
 
-    <script src="../dist/scheme-designer.min.js?24"></script>
+    <script src="../dist/scheme-designer.min.js?23"></script>
 
     <!-- data for scheme -->
-    <script src="./scheme-data.js?1"></script>
-    
+    <script src="./sector-data.js"></script>
+
     <style>
         .canvas-holder {
             width: 100%;
             height: 500px;
             position:relative;
-        }
-        @media (max-width: 767px) {
-            .canvas1_map_container {
-                display: none;
-            }
         }
     </style>
 </head>
@@ -31,13 +26,12 @@
     <div style="text-align: center;">
         <h2>Hall scheme example</h2>
 
-        <div style="position: relative;">
-            <div class="canvas-holder" style="">
-                <canvas id="canvas1" style="border: 1px solid #ccc;">
-                    Ваш браузер не поддерживает элемент canvas.
-                </canvas>
-            </div>
+        <div class="canvas-holder" style="">
+            <canvas id="canvas1" style="border: 1px solid #ccc;">
+                Ваш браузер не поддерживает элемент canvas.
+            </canvas>
         </div>
+
         <div class="well">
             <div class="row" >
                 <div class="col-sm-2" style="margin-bottom: 5px;">
@@ -70,8 +64,6 @@
     var backgroundLayer = new SchemeDesigner.Layer('background', {zIndex: 0, visible: false, active: false});
     var defaultLayer = new SchemeDesigner.Layer('default', {zIndex: 10});
 
-    var twoPi = Math.PI * 2;
-
     /**
      * Render place function
      * @param {SchemeObject} schemeObject
@@ -92,7 +84,7 @@
         var isHovered = schemeObject.isHovered && !SchemeDesigner.Tools.touchSupported();
 
         context.fillStyle = backgroundColor;
-		
+
         if (objectParams.isSelected && isHovered) {
             context.strokeStyle = backgroundColor;
         } else if (isHovered) {
@@ -114,7 +106,7 @@
             width = width - (borderOffset * 2);
             height = height - (borderOffset * 2);
         }
-		
+
         var halfWidth = width / 2;
         var halfHeight = height / 2;
 
@@ -127,7 +119,7 @@
             context.rotate(schemeObject.getRotation() * Math.PI / 180);
             context.rect(-halfWidth, -halfHeight, width, height);
         } else {
-            context.arc(circleCenterX, circleCenterY, halfWidth, 0, twoPi);
+            context.arc(circleCenterX, circleCenterY, halfWidth, 0, Math.PI * 2);
         }
 
 
@@ -149,13 +141,11 @@
             context.textBaseline = 'middle';
             if (schemeObject.rotation) {
                 context.fillText(objectParams.seat,
-                        -(schemeObject.getWidth() / 2) + (schemeObject.getWidth() / 2),
-                        -(schemeObject.getHeight() / 2)  + (schemeObject.getHeight() / 2)
+                    -(schemeObject.getWidth() / 2) + (schemeObject.getWidth() / 2),
+                    -(schemeObject.getHeight() / 2)  + (schemeObject.getHeight() / 2)
                 );
             } else {
-                context.fillText(objectParams.seat,
-                    relativeX + (schemeObject.getWidth() / 2),
-                    relativeY + (schemeObject.getHeight() / 2));
+                context.fillText(objectParams.seat, relativeX + (schemeObject.getWidth() / 2), relativeY + (schemeObject.getHeight() / 2));
             }
         }
 
@@ -210,7 +200,7 @@
             y: 0.5 + topOffset,
             width: width,
             height: height,
-            active: objectData.ObjectType == 'Place',
+            active: objectData.ObjectType == 'Place'? true : false,
             renderFunction: objectData.ObjectType == 'Place' ? renderPlace : renderLabel,
             cursorStyle: objectData.ObjectType == 'Place' ? 'pointer' : 'default',
 
@@ -234,9 +224,9 @@
 
                 var borderWidth = 5;
                 context.clearRect(schemeObject.x - borderWidth,
-                        schemeObject.y - borderWidth,
-                        this.width + (borderWidth * 2),
-                        this.height + (borderWidth * 2)
+                    schemeObject.y - borderWidth,
+                    this.width + (borderWidth * 2),
+                    this.height + (borderWidth * 2)
                 );
             }
         });
@@ -274,10 +264,8 @@
     }));
 
     var canvas = document.getElementById('canvas1');
-
     var schemeDesigner = new SchemeDesigner.Scheme(canvas, {
         options: {
-            background: '#ffffff',
             cacheSchemeRatio: 2
         },
         scroll: {
@@ -286,8 +274,7 @@
         zoom: {
             padding: 0.1,
             maxScale: 8,
-            zoomCoefficient: 1.04,
-            clickZoomDelta: 14
+            zoomCoefficient: 1.04
         },
         storage: {
             treeDepth: 6
@@ -320,15 +307,19 @@
     }, false);
 
     canvas.addEventListener('schemeDesigner.mouseOverObject', function (e) {
-       // console.log('mouseOverObject', e.detail);
+        // console.log('mouseOverObject', e.detail);
     }, false);
 
     canvas.addEventListener('schemeDesigner.mouseLeaveObject', function (e) {
-      //  console.log('mouseLeaveObject', e.detail);
+        //  console.log('mouseLeaveObject', e.detail);
     }, false);
 
     canvas.addEventListener('schemeDesigner.scroll', function (e) {
-      //  console.log('scroll', e.detail);
+        //  console.log('scroll', e.detail);
+    }, false);
+
+    canvas.addEventListener('schemeDesigner.zoom', function (e) {
+        //  console.log('zoom', e.detail);
     }, false);
 </script>
 </body>

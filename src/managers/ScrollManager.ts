@@ -22,7 +22,7 @@ namespace SchemeDesigner {
         /**
          * Max hidden part on scroll
          */
-        protected maxHiddenPart: number = 0.85;
+        protected maxHiddenPart: number = 0.5;
 
         /**
          * Constructor
@@ -59,20 +59,18 @@ namespace SchemeDesigner {
         public scroll(left: number, top: number): void
         {
             let boundingRect = this.scheme.getStorageManager().getObjectsBoundingRect();
-
             let scale = this.scheme.getZoomManager().getScale();
 
-            let maxScrollLeft = (this.scheme.getWidth() / scale) - boundingRect.left;
-            let maxScrollTop = (this.scheme.getHeight() / scale) - boundingRect.top;
+            let maxScrollLeft = -(boundingRect.left) * scale;
+            let maxScrollTop = -(boundingRect.top) * scale;
 
-            let minScrollLeft = -boundingRect.right;
-            let minScrollTop = -boundingRect.bottom;
+            let minScrollLeft = -(boundingRect.right) * scale;
+            let minScrollTop = -(boundingRect.bottom) * scale;
 
-            maxScrollLeft = maxScrollLeft * this.maxHiddenPart;
-            maxScrollTop = maxScrollTop * this.maxHiddenPart;
-            minScrollLeft = minScrollLeft * this.maxHiddenPart;
-            minScrollTop = minScrollTop * this.maxHiddenPart;
-
+            maxScrollLeft = maxScrollLeft + (this.scheme.getWidth() * this.maxHiddenPart);
+            maxScrollTop = maxScrollTop + (this.scheme.getHeight() * this.maxHiddenPart);
+            minScrollLeft = minScrollLeft + (this.scheme.getWidth() * (1 - this.maxHiddenPart));
+            minScrollTop = minScrollTop + (this.scheme.getHeight() * (1 - this.maxHiddenPart));
 
             if (left > maxScrollLeft) {
                 left = maxScrollLeft;
@@ -93,6 +91,10 @@ namespace SchemeDesigner {
             this.scrollLeft = left;
             this.scrollTop = top;
 
+            this.scheme.getView().setScrollTop(top);
+            this.scheme.getView().setScrollLeft(left);
+
+            this.scheme.getView().applyTransformation();
 
             // scroll fake scheme
             if (this.scheme.useSchemeCache()) {
@@ -119,20 +121,15 @@ namespace SchemeDesigner {
         public toCenter(): void
         {
             let boundingRect = this.scheme.getStorageManager().getObjectsBoundingRect();
+            let objectsDimensions = this.scheme.getStorageManager().getObjectsDimensions();
 
-            let boundingRectWidth = (boundingRect.right - boundingRect.left) * this.scheme.getZoomManager().getScale();
-            let boundingRectHeight = (boundingRect.bottom - boundingRect.top) * this.scheme.getZoomManager().getScale();
+            let scale = this.scheme.getZoomManager().getScale();
 
-            let widthDelta =  this.scheme.getWidth() - boundingRectWidth;
-            let heightDelta = this.scheme.getHeight() - boundingRectHeight;
+            let widthDelta = this.scheme.getWidth() / scale - objectsDimensions.width;
+            let heightDelta = this.scheme.getHeight() / scale - objectsDimensions.height;
 
-            let scrollLeft = (widthDelta / 2) / this.scheme.getZoomManager().getScale();
-            let scrollTop = (heightDelta / 2) / this.scheme.getZoomManager().getScale();
-
-
-            // left and top empty space
-            scrollLeft = scrollLeft  - boundingRect.left;
-            scrollTop = scrollTop  - boundingRect.top;
+            let scrollLeft = ((widthDelta / 2) - boundingRect.left) * scale;
+            let scrollTop = ((heightDelta / 2) - boundingRect.top) * scale;
 
             this.scroll(scrollLeft, scrollTop);
         }
@@ -150,10 +147,6 @@ namespace SchemeDesigner {
 
             let leftCenterOffset =  this.scheme.getEventManager().getLastClientX() - lastClientX;
             let topCenterOffset =  this.scheme.getEventManager().getLastClientY() - lastClientY;
-
-            // scale
-            leftCenterOffset = leftCenterOffset / this.scheme.getZoomManager().getScale();
-            topCenterOffset = topCenterOffset / this.scheme.getZoomManager().getScale();
 
             let scrollLeft = leftCenterOffset + this.getScrollLeft();
             let scrollTop = topCenterOffset + this.getScrollTop();
